@@ -149,7 +149,7 @@ def PPO(batchSize,Models,critic,clip):
             # Model.optimCritic.step()
     Model.saveModels()
 
-def EnvironmentIterationLoop(batch_size,LearningAlg,AdvantageFtn,):
+def EnvironmentIterationLoop(batch_size,LearningAlg,Critic=False,Clip=False):
     if LearningAlg == "Vanilla":        
         Model = VanillaModel()
         VanillaPolicyGradience(batch_size,Model)
