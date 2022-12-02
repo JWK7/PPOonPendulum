@@ -7,6 +7,7 @@ from Modules import NormalModule
 
 
 # standard torch flow
+
 def normal_forward_and_backpropagation_example():
     for multi_input in [False, True]:
         # initialize the model
@@ -39,6 +40,7 @@ def normal_forward_and_backpropagation_example():
 # use vectorized torch operations when you want to compute multiple outputs at once
 # torch will automatically parallelize the computation
 def vectorized_vs_nonvectorized():
+    returning = []
     for vectorized in [False, True]:
         layer = NormalModule(2, 1)
 
@@ -47,11 +49,15 @@ def vectorized_vs_nonvectorized():
             [layer(torch.randn(2)) for x in range(10000)]
             t_end = time.time()
             print("not vectorized", t_end - t_start)
+            returning.append(t_end - t_start)
         else:
             t_start = time.time()
             layer(torch.randn(10000, 2))
+            # [layer(torch.randn(2)) for x in range(1)]
             t_end = time.time()
             print("vectorized", t_end - t_start)
+            returning.append(t_end - t_start)
+    return returning
 
 
 if __name__ == "__main__":
