@@ -21,7 +21,7 @@ hidden_size = 8
 n_layers = 2
 clipEpsilon = 0.2
 
-class Models():
+class PPOModels():
     def __init__(self):
         self.Actor = PendulumNN(3, 1)
         self.Critic = PendulumNN(3,1)
@@ -34,6 +34,16 @@ class Models():
         torch.save(self.optimActor.state_dict(),"optimActor.pt")
         torch.save(self.optimCritic.state_dict(),"optimCritic.pt")
 
+
+class VanillaModel():
+    def __init__(self):
+        self.Actor = PendulumNN(3, 1)
+        self.optimActor = Adam(self.Actor.parameters(), lr=0.1)
+
+    def saveModels(self):
+        torch.save(self.Actor.state_dict(),"ActorModel.pt")
+        torch.save(self.optimActor.state_dict(),"optimActor.pt")
+        
 def RewardsToGo(rewards,discountFactor):
     if len(rewards) == 1:
         return rewards
@@ -89,8 +99,12 @@ def VanillaPolicyGradience(batchSize,model):
     env=gym.make("Pendulum-v1-custom")
     for i in range(batch_size):
         observations,rewards,actions,logprobs = DoRollout(policy,rollout_size,episode_size,discountFactor)
+        RewardsToGo = []
+        TrajectoryProbability = []
         for j in range(len(observations)):
-            
+            print(RewardsToGo(rewards[j]),discountFactor)
+        return
+
     #     advantage = calculateAdvantage(Model,observations,rewards)
     #     for j in range(3):
     #         ratio = getRatio(Model,logprobs,observations,actions)
@@ -103,62 +117,70 @@ def VanillaPolicyGradience(batchSize,model):
 
     # Model.saveModels()
 
-# def PPO(batchSize,Models,):
-#     # if batchSize < 1000:
-#     #     return "Error, batchsize too small"
-#     batch_size = batchSize
-#     rollout_size = 1
-#     episode_size= 500
-#     discountFactor = 0.1
-#     Model = Models
-#     env=gym.make("Pendulum-v1-custom")
-#     for i in range(batch_size):
-#         observations,rewards,actions,logprobs = DoRollout(Model,rollout_size,episode_size,discountFactor)
-#         advantage = calculateAdvantage(Model,observations,rewards)
-#         for j in range(3):
-#             ratio = getRatio(Model,logprobs,observations,actions)
-#             clippedRatio = torch.clip(ratio,1-clipEpsilon,1+clipEpsilon)
+def PPO(batchSize,Models):
+    # if batchSize < 1000:
+    #     return "Error, batchsize too small"
+    batch_size = batchSize
+    rollout_size = 1
+    episode_size= 500
+    discountFactor = 0.1
+    Model = Models
+    env=gym.make("Pendulum-v1-custom")
+    for i in range(batch_size):
+        observations,rewards,actions,logprobs = DoRollout(Model,rollout_size,episode_size,discountFactor)
+        advantage = calculateAdvantage(Model,observations,rewards)
+        for j in range(3):
+            ratio = getRatio(Model,logprobs,observations,actions)
+            clippedRatio = torch.clip(ratio,1-clipEpsilon,1+clipEpsilon)
 
-#             ActorGrad= torch.min(ratio*advantage,clippedRatio*advantage)
-#             Model.optimActor.zero_grad()
-#             ActorGrad.mean().backward()
-#             Model.optimActor.step()
+            ActorGrad= torch.min(ratio*advantage,clippedRatio*advantage)
+            Model.optimActor.zero_grad()
+            ActorGrad.mean().backward()
+            Model.optimActor.step()
 
 
-#             # CriticMean,CriticVar= Models.Critic(observations)
-#             # CriticDist = Normal(CriticMean, CriticVar)
-#             # sample             = CriticDist.sample()
-#             # logprob = CriticDist.log_prob(sample)
-#             # CriticGrad = logprob*(torch.subtract(torch.tensor(rewards),sample))
-#             # Model.optimCritic.zero_grad()
-#             # CriticGrad.mean().backward(retain_graph=True)
-#             # Model.optimCritic.step()
-#     Model.saveModels()
+            # CriticMean,CriticVar= Models.Critic(observations)
+            # CriticDist = Normal(CriticMean, CriticVar)
+            # sample             = CriticDist.sample()
+            # logprob = CriticDist.log_prob(sample)
+            # CriticGrad = logprob*(torch.subtract(torch.tensor(rewards),sample))
+            # Model.optimCritic.zero_grad()
+            # CriticGrad.mean().backward(retain_graph=True)
+            # Model.optimCritic.step()
+    Model.saveModels()
 
-def EnvironmentIterationLoop(batch_size):
-    Model = Models()
-    PPO(batch_size,Model)
+def EnvironmentIterationLoop(batch_size,LearningAlg):
+    if LearningAlg == "Vanilla":        
+        Model = VanillaModel()
+        VanillaPolicyGradience(batch_size,Model)
+        return
+    elif LearningAlg == "PPO":
+        Model = PPOModels()
+        PPO(batch_size,Model)
+    else:
+        print("No Option Selected")
+        return
 
 
 # EnvironmentIterationLoop(10000)
-def TryModel(model):
-    env=gym.make("Pendulum-v1-custom")
-    obs = env.reset()
-    rewards=[]
-    for i in range(1000):
-        action = model(torch.tensor(obs))
-        print(action)
-        obs, reward, done, info = env.step(torch.tensor(action))
-        rewards.append(reward.tolist())
-    return rewards
+# def TryModel(model):
+#     env=gym.make("Pendulum-v1-custom")
+#     obs = env.reset()
+#     rewards=[]
+#     for i in range(1000):
+#         action = model(torch.tensor(obs))
+#         print(action)
+#         obs, reward, done, info = env.step(torch.tensor(action))
+#         rewards.append(reward.tolist())
+#     return rewards
 
 EnvironmentIterationLoop(100)
-model = PendulumNN(3,1)
-model.load_state_dict(torch.load("ActorModel.pt"))
+# model = PendulumNN(3,1)
+# model.load_state_dict(torch.load("ActorModel.pt"))
 
-model2 = PendulumNN(3,1)
+# model2 = PendulumNN(3,1)
 
-y = TryModel(model2)
-x = (TryModel(model))
-print(sum(x))
-print(sum(y))
+# y = TryModel(model2)
+# x = (TryModel(model))
+# print(sum(x))
+# print(sum(y))
