@@ -117,7 +117,7 @@ def VanillaPolicyGradience(batchSize,model):
 
     # Model.saveModels()
 
-def PPO(batchSize,Models):
+def PPO(batchSize,Models,critic,clip):
     # if batchSize < 1000:
     #     return "Error, batchsize too small"
     batch_size = batchSize
@@ -149,7 +149,7 @@ def PPO(batchSize,Models):
             # Model.optimCritic.step()
     Model.saveModels()
 
-def EnvironmentIterationLoop(batch_size,LearningAlg):
+def EnvironmentIterationLoop(batch_size,LearningAlg,AdvantageFtn,):
     if LearningAlg == "Vanilla":        
         Model = VanillaModel()
         VanillaPolicyGradience(batch_size,Model)
