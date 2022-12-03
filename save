@@ -71,15 +71,11 @@ def DoRollout(Models,rollout_size,episode_size,discountFactor):
             episodeObs.append(obs)
             episodeRewards.append(reward.tolist())
             episodeActs.append(action)
-            episodeLogprobs.append(logprob.clone())
+            episodeLogprobs.append(logprob)
         obervations.append(episodeObs)
         rewards.append(episodeRewards)
         actions.append(episodeActs)
         logprobs.append(episodeLogprobs)
-        for j in range(episode_size):
-            Models.optimActor.zero_grad()
-            episodeLogprobs[j].mean().backward()
-            Models.optimActor.step()
     return obervations,rewards,actions,logprobs
         
 def calculateAdvantage(Models,observations,rewards):
@@ -105,31 +101,27 @@ def VanillaPolicyGradience(batchSize,model):
     env=gym.make("Pendulum-v1-custom")
     for i in range(batch_size):
         observations,rewards,actions,logprobs = DoRollout(policy,rollout_size,episode_size,discountFactor)
-        # trajectoryGrads =[]
-        # for j in range(len(observations)):
+        trajectoryGrads =[]
+        for j in range(len(observations)):
             # print(logprobs[j])
             # print("\n\n")
             # print(RewardsToGo(rewards[j],discountFactor))
-            # for k in range(1,episode_size):
-            #     policy.optimActor.zero_grad()
-            #     (logprobs[j][k]*RewardsToGo(rewards[j],discountFactor)[k]).mean().backward()
-            #     policy.optimActor.step()
-            # trajectoryGrad = logprobs[j][0]*RewardsToGo(rewards[j],discountFactor)[0]
+            trajectoryGrad = logprobs[j][0]*RewardsToGo(rewards[j],discountFactor)[0]
             # for k in range(1,episode_size):
             #     trajectoryGrad +=logprobs[j][k]*RewardsToGo(rewards[j],discountFactor)[k]
-            # trajectoryGrads.append(trajectoryGrad)
+            trajectoryGrads.append(trajectoryGrad)
         # FinalGrad = trajectoryGrads[0]
-        # for j in range(1,len(observations)):
-        #     # FinalGrad+=trajectoryGrads[j]
-        #     ActorGrad= trajectoryGrads[j]
-        #     policy.optimActor.zero_grad()
-        #     ActorGrad.mean().backward()
-        #     policy.optimActor.step()
-        # # FinalGrad/=len(observations)
-        # # ActorGrad= FinalGrad
-        # # policy.optimActor.zero_grad()
-        # # ActorGrad.mean().backward()
-        # # policy.optimActor.step()
+        for j in range(1,len(observations)):
+            # FinalGrad+=trajectoryGrads[j]
+            ActorGrad= trajectoryGrads[j]
+            policy.optimActor.zero_grad()
+            ActorGrad.mean().backward()
+            policy.optimActor.step()
+        # FinalGrad/=len(observations)
+        # ActorGrad= FinalGrad
+        # policy.optimActor.zero_grad()
+        # ActorGrad.mean().backward()
+        # policy.optimActor.step()
     policy.saveModels()
 
 
