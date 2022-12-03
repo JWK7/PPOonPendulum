@@ -11,7 +11,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from Modules import NormalModule
 from Modules import PendulumNN
-from Modules import PastPendulumNN
 from torch_misc import vectorized_vs_nonvectorized
 import numpy
 # sample hyperparameters
@@ -116,9 +115,9 @@ def VanillaPolicyGradience(batchSize,model):
     # if batchSize < 1000:
     #     return "Error, batchsize too small"
     batch_size = batchSize
-    rollout_size = 50
-    episode_size= 100
-    discountFactor = 0.0
+    rollout_size = 100
+    episode_size= 200
+    discountFactor = 0.1
     policy = model
     env=gym.make("Pendulum-v1-custom")
     for i in range(batch_size):
@@ -133,9 +132,6 @@ def VanillaPolicyGradience(batchSize,model):
         policy.optimActor.zero_grad()
         grad.backward()
         policy.optimActor.step()
-        if i %10==1:
-            print("Saved!")
-            policy.saveModels()
     policy.saveModels()
 
 
@@ -171,55 +167,47 @@ def TryModel(model):
     rewards=[]
     # print(obs)
     minReward = -1000
-    minobs = obs
-    print(obs)
     for i in range(300):
         action,_ = model(torch.tensor(obs))
-        # print("OBS:")
-        # print(obs)
-        # print("Action:")
-        # print(action)
+        print("OBS:")
+        print(obs)
+        print("Action:")
+        print(action)
         obs, reward, done, info = env.step(action.detach())
-        # print("Reward:")
-        # print(reward)
-
-       # input()
+        print("Reward:")
+        print(reward)
+        input()
         if reward > minReward:
             minReward=reward
-            minobs = obs
         rewards.append(reward.tolist())
-        # input()
-    return rewards,minReward,obs
+    return rewards,minReward
 
 def ManualLabor():
     env=gym.make("Pendulum-v1-custom")
     obs = env.reset()
     rewards=[]
-    # print(obs)
+    print(obs)
     minReward = -1000
     for i in range(300):
         action = float(input())
         obs, reward, done, info = env.step([action])
-        # print(obs)
-        # print(reward)
+        print(obs)
+        print(reward)
         if reward > minReward:
             minReward=reward
-            input()
         rewards.append(reward.tolist())
     return rewards
 
-print(EnvironmentIterationLoop(100,"Vanilla"))
-model = PastPendulumNN(3,1)
-model.load_state_dict(torch.load("Best.pt"))
-x,b,f = TryModel(model)
-# model2 = PastPendulumNN(3,1)
-# model2.load_state_dict(torch.load("Works.pt"))
+# print(EnvironmentIterationLoop(100,"Vanilla"))
+model = PendulumNN(3,1)
+model.load_state_dict(torch.load("VanillaModel.pt"))
+# TryModel(model)
+# model2 = PendulumNN(3,1)
 
-# y,c,g = TryModel(model2)
+x,b = (TryModel(model))
+# y,c = TryModel(model2)
 print(sum(x))
 print(b)
-print(f)
 # print(sum(y))
 # print(c)
-# print(g)
 # ManualLabor()

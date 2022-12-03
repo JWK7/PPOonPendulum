@@ -25,6 +25,26 @@ import torch.nn.functional as F
 class PendulumNN(nn.Module):
     def __init__(self,input,output,activation=nn.Tanh):
         super(PendulumNN,self).__init__()
+        self.fc1=nn.Linear(input,90)
+        self.fc2=nn.Linear(90,90)
+        self.fc3=nn.Linear(90,90)
+        self.fc4=nn.Linear(90,output)
+        self.act1 = activation
+        log_std = -0.5 * np.ones(output, dtype=np.float32)
+        self.log_std = torch.nn.Parameter(torch.as_tensor(log_std))
+
+    def forward(self,x):
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
+        x = self.fc4(x)
+        vout = torch.exp(self.log_std)
+        return x, vout
+
+
+class PastPendulumNN(nn.Module):
+    def __init__(self,input,output,activation=nn.Tanh):
+        super(PastPendulumNN,self).__init__()
         self.fc1=nn.Linear(input,30)
         self.fc2=nn.Linear(30,30)
         self.fc3=nn.Linear(30,30)
