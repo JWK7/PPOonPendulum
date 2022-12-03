@@ -89,9 +89,6 @@ def getRatio(Model,oldProbs,observations,actions):
     return torch.exp(NewProbs-oldProbs)
 
 
-def Learn(model,observations,rewards,actions,logprobs):
-    policy = model
-    print(rewards) 
 
 def VanillaPolicyGradience(batchSize,model):
     # if batchSize < 1000:
@@ -105,31 +102,26 @@ def VanillaPolicyGradience(batchSize,model):
     for i in range(batch_size):
         observations,rewards,actions,logprobs = DoRollout(policy,rollout_size,episode_size,discountFactor)
         trajectoryGrads =[]
-        #Learn
-        for j in range(rollout_size):
-
-            policy = Learn(model,observations[j],RewardsToGo(rewards[j],discountFactor),actions[j],logprobs)
-            return
-            # for k in range(1,episode_size):
-            #     policy.optimActor.zero_grad()
-            #     (logprobs[j][k]*RewardsToGo(rewards[j],discountFactor)[k]).mean().backward()
-            #     policy.optimActor.step()
-            # trajectoryGrad = logprobs[j][0]*RewardsToGo(rewards[j],discountFactor)[0]
+        for j in range(len(observations)):
+            # print(logprobs[j])
+            # print("\n\n")
+            # print(RewardsToGo(rewards[j],discountFactor))
+            trajectoryGrad = logprobs[j][0]*RewardsToGo(rewards[j],discountFactor)[0]
             # for k in range(1,episode_size):
             #     trajectoryGrad +=logprobs[j][k]*RewardsToGo(rewards[j],discountFactor)[k]
-            # trajectoryGrads.append(trajectoryGrad)
-        # FinalGrad = trajectoryGrads[0]
-        # for j in range(1,len(observations)):
-        #     # FinalGrad+=trajectoryGrads[j]
-        #     ActorGrad= trajectoryGrads[j]
-        #     policy.optimActor.zero_grad()
-        #     ActorGrad.mean().backward()
-        #     policy.optimActor.step()
-        # # FinalGrad/=len(observations)
-        # # ActorGrad= FinalGrad
-        # # policy.optimActor.zero_grad()
-        # # ActorGrad.mean().backward()
-        # # policy.optimActor.step()
+            trajectoryGrads.append(trajectoryGrad)
+        FinalGrad = trajectoryGrads[0]
+        for j in range(1,len(observations)):
+            FinalGrad+=trajectoryGrads[j]
+            # ActorGrad= trajectoryGrads[j]
+            # policy.optimActor.zero_grad()
+            # ActorGrad.mean().backward()
+            # policy.optimActor.step()
+        FinalGrad/=len(observations)
+        ActorGrad= FinalGrad
+        policy.optimActor.zero_grad()
+        ActorGrad.mean().backward()
+        policy.optimActor.step()
     policy.saveModels()
 
 
@@ -220,13 +212,13 @@ def ManualLabor():
     return rewards
 
 print(EnvironmentIterationLoop(1000,"Vanilla"))
-# model = PendulumNN(3,1)
-# model.load_state_dict(torch.load("VanillaModel.pt"))
-# TryModel(model)
-# model2 = PendulumNN(3,1)
-# # model2.load_state_dict(torch.load("VanillaModel2.pt"))
-# x = (TryModel(model))
-# y = TryModel(model2)
-# print(sum(x))
-# print(sum(y))
+model = PendulumNN(3,1)
+model.load_state_dict(torch.load("VanillaModel.pt"))
+TryModel(model)
+model2 = PendulumNN(3,1)
+# model2.load_state_dict(torch.load("VanillaModel2.pt"))
+x = (TryModel(model))
+y = TryModel(model2)
+print(sum(x))
+print(sum(y))
 # ManualLabor()

@@ -56,12 +56,12 @@ def DoRollout(Models,rollout_size,episode_size,discountFactor):
     rewards = []
     actions = []
     logprobs = []
-    obs = env.reset()
     for i in range(rollout_size):
         episodeObs =[]
         episodeRewards = []
         episodeActs = []
         episodeLogprobs = []
+        obs = env.reset()
         for j in range(episode_size):
             out_mean,out_variance   = Models.Actor(torch.as_tensor(obs))
             out_action_distribution = Normal(out_mean, out_variance)
@@ -71,15 +71,11 @@ def DoRollout(Models,rollout_size,episode_size,discountFactor):
             episodeObs.append(obs)
             episodeRewards.append(reward.tolist())
             episodeActs.append(action)
-            episodeLogprobs.append(logprob.clone())
+            episodeLogprobs.append(logprob)
         obervations.append(episodeObs)
         rewards.append(episodeRewards)
         actions.append(episodeActs)
         logprobs.append(episodeLogprobs)
-        for j in range(episode_size):
-            Models.optimActor.zero_grad()
-            episodeLogprobs[j].mean().backward()
-            Models.optimActor.step()
     return obervations,rewards,actions,logprobs
         
 def calculateAdvantage(Models,observations,rewards):
@@ -99,37 +95,34 @@ def VanillaPolicyGradience(batchSize,model):
     #     return "Error, batchsize too small"
     batch_size = batchSize
     rollout_size = 100
-    episode_size= 5
+    episode_size= 1
     discountFactor = 0.1
     policy = model
     env=gym.make("Pendulum-v1-custom")
     for i in range(batch_size):
         observations,rewards,actions,logprobs = DoRollout(policy,rollout_size,episode_size,discountFactor)
-        # trajectoryGrads =[]
-        # for j in range(len(observations)):
+        trajectoryGrads =[]
+        for j in range(len(observations)):
             # print(logprobs[j])
             # print("\n\n")
             # print(RewardsToGo(rewards[j],discountFactor))
-            # for k in range(1,episode_size):
-            #     policy.optimActor.zero_grad()
-            #     (logprobs[j][k]*RewardsToGo(rewards[j],discountFactor)[k]).mean().backward()
-            #     policy.optimActor.step()
             # trajectoryGrad = logprobs[j][0]*RewardsToGo(rewards[j],discountFactor)[0]
+            trajectoryGrad = logprobs[j][0]*rewards[j][0]
             # for k in range(1,episode_size):
             #     trajectoryGrad +=logprobs[j][k]*RewardsToGo(rewards[j],discountFactor)[k]
-            # trajectoryGrads.append(trajectoryGrad)
-        # FinalGrad = trajectoryGrads[0]
-        # for j in range(1,len(observations)):
-        #     # FinalGrad+=trajectoryGrads[j]
-        #     ActorGrad= trajectoryGrads[j]
-        #     policy.optimActor.zero_grad()
-        #     ActorGrad.mean().backward()
-        #     policy.optimActor.step()
-        # # FinalGrad/=len(observations)
-        # # ActorGrad= FinalGrad
-        # # policy.optimActor.zero_grad()
-        # # ActorGrad.mean().backward()
-        # # policy.optimActor.step()
+            trajectoryGrads.append(trajectoryGrad)
+        FinalGrad = trajectoryGrads[0]
+        for j in range(1,len(observations)):
+            FinalGrad+=trajectoryGrads[j]
+            # ActorGrad= trajectoryGrads[j]
+            # policy.optimActor.zero_grad()
+            # ActorGrad.mean().backward()
+            # policy.optimActor.step()
+        FinalGrad/=len(observations)
+        ActorGrad= FinalGrad
+        policy.optimActor.zero_grad()
+        ActorGrad.mean().backward()
+        policy.optimActor.step()
     policy.saveModels()
 
 
@@ -219,14 +212,14 @@ def ManualLabor():
         rewards.append(reward.tolist())
     return rewards
 
-print(EnvironmentIterationLoop(1000,"Vanilla"))
+print(EnvironmentIterationLoop(1,"Vanilla"))
 model = PendulumNN(3,1)
 model.load_state_dict(torch.load("VanillaModel.pt"))
 TryModel(model)
-model2 = PendulumNN(3,1)
+# model2 = PendulumNN(3,1)
 # model2.load_state_dict(torch.load("VanillaModel2.pt"))
-x = (TryModel(model))
-y = TryModel(model2)
-print(sum(x))
-print(sum(y))
+# x = (TryModel(model))
+# y = TryModel(model2)
+# print(sum(x))
+# print(sum(y))
 # ManualLabor()
