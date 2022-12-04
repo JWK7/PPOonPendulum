@@ -21,7 +21,6 @@ def normal_forward_and_backpropagation_example():
         else:
             # run multiple parallel forward passes
             out_mean, out_variance = layer(torch.randn(1000, 2))
-
         # forward pass cont
         out_action_distribution = Normal(out_mean, out_variance)
         out_sampled             = out_action_distribution.sample()
@@ -29,6 +28,9 @@ def normal_forward_and_backpropagation_example():
         # backpropagation
         logprob = out_action_distribution.log_prob(out_sampled)
         grad = logprob * torch.randn(1)  # dummy reward
+
+        print(grad)
+        input()
 
         optim.zero_grad()
         grad.mean().backward()
