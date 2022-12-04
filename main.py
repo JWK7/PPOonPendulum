@@ -2,6 +2,8 @@ import gym
 import a3_gym_env
 import Modules
 import torch_misc
+import sys
+
 env = gym.make('Pendulum-v1-custom')
 import time
 import torch
@@ -14,6 +16,7 @@ from Modules import PendulumNN
 from Modules import PastPendulumNN
 from torch_misc import vectorized_vs_nonvectorized
 import numpy
+import pandas as pd
 # sample hyperparameters
 batch_size = 10000
 epochs = 30
@@ -100,43 +103,103 @@ def getGradient(logprobs,npRTG,rollout_size,episode_size):
     #         prob+=logprobs[i][k]
     #     trajLogProbs+= prob
     # return trajLogProbs
-    prob = logprobs[0][0]
-    for i in range(1,episode_size):
-        prob+=logprobs[0][i]
+    # prob = logprobs[0][0]*-npRTG[0][0]
+    # for i in range(1,episode_size):
+    #     prob+=logprobs[0][i]*-npRTG[0][i]
+    # trajLogProbs= prob
+    # for i in range(1,rollout_size):
+    #     prob = logprobs[i][0]*-npRTG[i][0]
+    #     for k in range(1,episode_size):
+    #         prob+=logprobs[i][k]*-npRTG[i][k]
+    #     trajLogProbs+= prob
+
+    prob = logprobs[0][0]#*-npRTG[0][0]
+    # for i in range(1,episode_size):
+    #     prob+=logprobs[0][i]#*-npRTG[0][i]
     trajLogProbs= prob*-npRTG[0]
     for i in range(1,rollout_size):
-        prob = logprobs[i][0]
-        for k in range(1,episode_size):
-            prob+=logprobs[i][k]
+        prob = logprobs[i][0]#*-npRTG[i][0]
+        # for k in range(1,episode_size):
+        #     prob+=logprobs[i][k]#*-npRTG[i][k]
         trajLogProbs+= prob*-npRTG[i]
     return trajLogProbs/rollout_size
     
+def CriticDoRollout(Models,rollout_size,episode_size,discountFactor):
+    obervations =[]
+    rewards = []
+    actions = []
+    logprobs = []
+    for i in range(rollout_size):
+        episodeObs =[]
+        episodeRewards = []
+        episodeActs = []
+        episodeLogprobs = []
+        obs = env.reset()
+        for j in range(episode_size):
+            out_mean,out_variance   = Models.Actor(torch.as_tensor(obs))
+            out_action_distribution = Normal(out_mean, out_variance)
+            action                  = out_action_distribution.sample()
+            obs, reward, done, info = env.step(action)
+            logprob = out_action_distribution.log_prob(action)
+            episodeObs.append(obs)
+            episodeRewards.append(reward.tolist())
+            episodeActs.append(action)
+            episodeLogprobs.append(logprob)
+        obervations.append(episodeObs)
+        rewards.append(episodeRewards)
+        actions.append(episodeActs)
+        logprobs.append(episodeLogprobs)
+    return obervations,rewards,actions,logprobs
 
-def VanillaPolicyGradience(batchSize,model):
-    # if batchSize < 1000:
-    #     return "Error, batchsize too small"
+def LearnCritic(batchSize,model):
     batch_size = batchSize
     rollout_size = 50
-    episode_size= 100
-    discountFactor = 0.0
+    episode_size= 1
+    discountFactor = 0.1
     policy = model
+    score =[]
     env=gym.make("Pendulum-v1-custom")
     for i in range(batch_size):
         observations,rewards,actions,logprobs = DoRollout(policy,rollout_size,episode_size,discountFactor)
         trajectoryGrads =[]
-        RewardsToGos =[]
-        for j in range(rollout_size):RewardsToGos.append(RewardsToGo(rewards[j],discountFactor)[0])
-        npRTG= numpy.array(RewardsToGos)
-        meannpRTG= npRTG.mean(axis=0)
-        npRTG -=meannpRTG
-        grad = getGradient(logprobs,npRTG,rollout_size,episode_size)
-        policy.optimActor.zero_grad()
-        grad.backward()
-        policy.optimActor.step()
-        if i %10==1:
-            print("Saved!")
-            policy.saveModels()
-    policy.saveModels()
+        print(len(logprobs))
+        return
+        # grad = logprobs.spread()
+        # policy.optimActor.zero_grad()
+        # grad.mean().backward()
+        # policy.optimActor.step()
+        # if i %10==1:
+
+# def VanillaPolicyGradience(batchSize,model):
+#     # if batchSize < 1000:
+#     #     return "Error, batchsize too small"
+#     batch_size = batchSize
+#     rollout_size = 50
+#     episode_size= 200
+#     discountFactor = 0.1
+#     policy = model
+#     score =[]
+#     env=gym.make("Pendulum-v1-custom")
+#     for i in range(batch_size):
+#         observations,rewards,actions,logprobs = DoRollout(policy,rollout_size,episode_size,discountFactor)
+#         trajectoryGrads =[]
+#         RewardsToGos =[]
+#         for j in range(rollout_size): RewardsToGos.append(RewardsToGo(rewards[j],discountFactor)[0])
+#         npRTG= numpy.array(RewardsToGos)
+#         score.append(npRTG.sum())
+#         print(npRTG.sum())
+#         meannpRTG= npRTG.mean(axis=0)
+#         npRTG -=meannpRTG
+#         # npRTG = npRTG.sum(axis=1)
+#         grad = getGradient(logprobs,npRTG,rollout_size,episode_size)
+#         policy.optimActor.zero_grad()
+#         grad.mean().backward()
+#         policy.optimActor.step()
+#         if i %10==1:
+#             print("Saved!")
+#             policy.saveModels()
+#     policy.saveModels()
+#     return score
 
 
     #     advantage = calculateAdvantage(Model,observations,rewards)
@@ -153,15 +216,17 @@ def VanillaPolicyGradience(batchSize,model):
 
 
 def EnvironmentIterationLoop(batch_size,LearningAlg,Critic=False,Clip=False):
-    if LearningAlg == "Vanilla":        
-        Model = VanillaModel()
-        return VanillaPolicyGradience(batch_size,Model)
+    Model = VanillaModel()
+    return LearnCritic(batch_size,Model)
+    # if LearningAlg == "Vanilla":        
+    #     Model = VanillaModel()
+    #     return VanillaPolicyGradience(batch_size,Model)
     # elif LearningAlg == "PPO":
     #     Model = PPOModels()
     #     return PPO(batch_size,Model,Critic,Clip)
-    else:
-        print("No Option Selected")
-        return
+    # else:
+    #     print("No Option Selected")
+    #     return
 
 
 # EnvironmentIterationLoop(10000)
@@ -172,8 +237,8 @@ def TryModel(model):
     # print(obs)
     minReward = -1000
     minobs = obs
-    print(obs)
-    for i in range(300):
+    # print(obs)
+    for i in range(10000):
         action,_ = model(torch.tensor(obs))
         # print("OBS:")
         # print(obs)
@@ -183,7 +248,12 @@ def TryModel(model):
         # print("Reward:")
         # print(reward)
 
-       # input()
+        if i%1==0:
+            print(obs)
+            print(action[0])
+            print(sum(rewards))
+            input()
+
         if reward > minReward:
             minReward=reward
             minobs = obs
@@ -197,7 +267,7 @@ def ManualLabor():
     rewards=[]
     # print(obs)
     minReward = -1000
-    for i in range(300):
+    for i in range(100):
         action = float(input())
         obs, reward, done, info = env.step([action])
         # print(obs)
@@ -208,18 +278,23 @@ def ManualLabor():
         rewards.append(reward.tolist())
     return rewards
 
-print(EnvironmentIterationLoop(100,"Vanilla"))
-model = PastPendulumNN(3,1)
-model.load_state_dict(torch.load("Best.pt"))
-x,b,f = TryModel(model)
+
+score = EnvironmentIterationLoop(int(sys.argv[1]),"Critic")
+# df = pd.DataFrame(numpy.array(score))
+# df.to_csv("score.csv")
+# model = PendulumNN(3,1)
+# model.load_state_dict(torch.load("VanillaModel.pt"))
+# x,b,f = TryModel(model)
 # model2 = PastPendulumNN(3,1)
-# model2.load_state_dict(torch.load("Works.pt"))
+# model2.load_state_dict(torch.load("Best.pt"))
 
 # y,c,g = TryModel(model2)
-print(sum(x))
-print(b)
-print(f)
+# print(sum(x))
+# print(b)
+# print(f)
 # print(sum(y))
 # print(c)
 # print(g)
-# ManualLabor()
+# # ManualLabor()
+
+# print(numpy.array([[1,2,3],[4,5,6]]).sum(axis=0))
