@@ -139,9 +139,9 @@ def CriticDoRollout(Models,rollout_size,episode_size,discountFactor):
             out_mean,out_variance   = Models.Actor(torch.as_tensor(obs))
             out_action_distribution = Normal(out_mean, out_variance)
             action                  = out_action_distribution.sample()
+            episodeObs.append(obs)
             obs, reward, done, info = env.step(action)
             logprob = out_action_distribution.log_prob(action)
-            episodeObs.append(obs)
             episodeRewards.append(reward.tolist())
             episodeActs.append(action)
             episodeLogprobs.append(logprob)
@@ -170,36 +170,36 @@ def LearnCritic(batchSize,model):
         # policy.optimActor.step()
         # if i %10==1:
 
-# def VanillaPolicyGradience(batchSize,model):
-#     # if batchSize < 1000:
-#     #     return "Error, batchsize too small"
-#     batch_size = batchSize
-#     rollout_size = 50
-#     episode_size= 200
-#     discountFactor = 0.1
-#     policy = model
-#     score =[]
-#     env=gym.make("Pendulum-v1-custom")
-#     for i in range(batch_size):
-#         observations,rewards,actions,logprobs = DoRollout(policy,rollout_size,episode_size,discountFactor)
-#         trajectoryGrads =[]
-#         RewardsToGos =[]
-#         for j in range(rollout_size): RewardsToGos.append(RewardsToGo(rewards[j],discountFactor)[0])
-#         npRTG= numpy.array(RewardsToGos)
-#         score.append(npRTG.sum())
-#         print(npRTG.sum())
-#         meannpRTG= npRTG.mean(axis=0)
-#         npRTG -=meannpRTG
-#         # npRTG = npRTG.sum(axis=1)
-#         grad = getGradient(logprobs,npRTG,rollout_size,episode_size)
-#         policy.optimActor.zero_grad()
-#         grad.mean().backward()
-#         policy.optimActor.step()
-#         if i %10==1:
-#             print("Saved!")
-#             policy.saveModels()
-#     policy.saveModels()
-#     return score
+def VanillaPolicyGradience(batchSize,model):
+    # if batchSize < 1000:
+    #     return "Error, batchsize too small"
+    batch_size = batchSize
+    rollout_size = 50
+    episode_size= 200
+    discountFactor = 0.1
+    policy = model
+    score =[]
+    env=gym.make("Pendulum-v1-custom")
+    for i in range(batch_size):
+        observations,rewards,actions,logprobs = DoRollout(policy,rollout_size,episode_size,discountFactor)
+        trajectoryGrads =[]
+        RewardsToGos =[]
+        for j in range(rollout_size): RewardsToGos.append(RewardsToGo(rewards[j],discountFactor)[0])
+        npRTG= numpy.array(RewardsToGos)
+        score.append(npRTG.sum())
+        print(npRTG.sum())
+        meannpRTG= npRTG.mean(axis=0)
+        npRTG -=meannpRTG
+        npRTG = npRTG.sum(axis=1)
+        grad = getGradient(logprobs,npRTG,rollout_size,episode_size)
+        policy.optimActor.zero_grad()
+        grad.mean().backward()
+        policy.optimActor.step()
+        if i %10==1:
+            print("Saved!")
+            policy.saveModels()
+    policy.saveModels()
+    return score
 
 
     #     advantage = calculateAdvantage(Model,observations,rewards)
